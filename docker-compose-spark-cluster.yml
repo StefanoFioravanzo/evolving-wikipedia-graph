@@ -1,0 +1,29 @@
+version: '3'
+
+services:
+  spark-master:
+    image: 'bigdata/spark'
+    command: ["org.apache.spark.deploy.master.Master", "--ip", "spark-master", "--port", "7077", "--webui-port", "8080"]
+    ports:
+      - '7077:7077'
+      - '8080:8080'
+    volumes:
+      - ".:/project"
+      - "./data:/data"
+
+  spark-worker:
+    image: 'bigdata/spark'
+    command: ["org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077", "--webui-port", "8081"]
+    depends_on:
+      - spark-master
+    ports:
+      # docker automatically assign to the container a port in this range
+      # this is useful when using 'scale' to run multiple workers
+      - '8081-8090:8081'
+    volumes:
+      - "./data:/data"
+
+networks:
+    default:
+        external:
+            name: sandbox-cluster

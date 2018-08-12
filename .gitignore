@@ -1,6 +1,8 @@
 .class
 *.log
 
+data/
+
 # sbt specific
 .cache/
 .history/
@@ -14,3 +16,7 @@ project/plugins/project/
 
 # IDE specific
 .idea
+
+# Docker specific
+hadoop-dfs-data/
+hadoop-dfs-name/

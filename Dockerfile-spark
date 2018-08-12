@@ -1,0 +1,23 @@
+# inspired by https://hub.docker.com/r/wongnai/spark-standalone/
+FROM openjdk:8u141-slim
+
+ARG APACHE_MIRROR_SERVER=http://apache.mirror.digionline.de
+ARG SPARK_VERSION=2.3.1
+ARG HADOOP_VERSION=2.7
+
+RUN apt-get update \
+ && apt-get -y install wget \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /opt \
+ && wget -q -O - ${APACHE_MIRROR_SERVER}/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz | tar -xzf - -C /opt \
+ && mv /opt/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} /opt/spark
+
+ENV PATH=/opt/spark/bin:/opt/spark/sbin:$PATH
+
+EXPOSE 6066 7077 7078 8080 8081
+
+WORKDIR /opt/spark
+
+ENTRYPOINT ["/opt/spark/bin/spark-class"]
+CMD ["org.apache.spark.deploy.master.Master", "--ip spark-master", "--port 7077", "--webui-port 8080"]
