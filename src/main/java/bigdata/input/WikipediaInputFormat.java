@@ -19,6 +19,7 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -93,6 +94,7 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
         private byte[] revisionEndTag;
         private byte[] titleStartTag;
         private byte[] titleEndTag;
+        private byte[] redirectStartTag;
         private long start;
         private long end;
         private long pos;
@@ -128,6 +130,7 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
             titleEndTag = "</title>".getBytes(StandardCharsets.UTF_8);
             revisionStartTag = "<revision>".getBytes(StandardCharsets.UTF_8);
             revisionEndTag = "</revision>".getBytes(StandardCharsets.UTF_8);
+            redirectStartTag = "</redirect>".getBytes(StandardCharsets.UTF_8);
 
             FileSplit split = (FileSplit) input;
             start = split.getStart();
@@ -201,11 +204,11 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
 
                     //TODO: Assuming there are no pages without revisions
                     // get next revision in page
-                    int res = readUntilMatch(revisionStartTag, false);
-                    if (res == 1) {
+                    int res = readUntilMatch(false, revisionStartTag, pageEndTag);
+                    if (res == 0) {
                         try {
                             buffer.write(revisionStartTag);
-                            if (readUntilMatch(revisionEndTag, true) == 1) {
+                            if (readUntilMatch(true, revisionEndTag) == 0) {
                                 System.out.println("\tRevision found");
                                 key.set(currentTitle);
                                 value.set(buffer.getData(), 0, buffer.getLength());
@@ -214,7 +217,7 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
                         } finally {
                             buffer.reset();
                         }
-                    } else if (res == 2) {
+                    } else if (res == 1) {
                         // page is finished
                         buffer.reset();
                         insidePage = false;
@@ -223,12 +226,12 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
                         // Since we have now parsed the end of the previous page,
                         // the logic goes back to the top of the loop and will start
                         // parsing the next page
-                    } else if (res == 0) {
+                    } else if (res == -1) {
                         // this should never happen
                         // here we are looping through the revisions
                         // of a page, so the stream should not stop without
                         // encountering a </page> tag
-                        throw new IOException("Input stream ended with no closing </paga> tag");
+                        throw new IOException("Input stream ended with no closing </page> tag");
                     }
                 }
             }
@@ -237,12 +240,12 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
 
         // TODO: Include parsing of <redirect> tag to automatically exclude pages that are just redirects to other pages?
         private boolean findNextPage() throws IOException {
-            int res = readUntilMatch(pageStartTag, false);
-            if (res == 1) {
+            int res = readUntilMatch(false, pageStartTag);
+            if (res == 0) {
                 // started new page
                 // get the page title
-                if (readUntilMatch(titleStartTag, false) == 1) {
-                    if (readUntilMatch(titleEndTag, true) == 1) {
+                if (readUntilMatch(false, titleStartTag) == 0) {
+                    if (readUntilMatch(true, titleEndTag) == 0) {
                         // remove end tag '</title>' from title
                         currentTitle.set(buffer.getData(), 0, buffer.getLength() - titleEndTag.length);
 //                        currentTitle = Arrays.copyOfRange(
@@ -252,15 +255,24 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
 //                                new String(buffer.getData()).trim().length() - titleEndTag.length);
                         System.out.println("Streaming Article: " + currentTitle);
                         buffer.reset();
-                        insidePage = true;
+
+                        // If the page is a redirect, go to the next page
+                        // (search for the <redirect> tag
+                        if (!isRedirect()) {
+                            insidePage = true;
+                        }
                     }
                 }
-            } else if (res == 0){
+            } else if (res == -1){
                 // file stream ended
                 System.out.println("Input stream ended.");
                 return false;
             }
             return true;
+        }
+
+        private boolean isRedirect() throws IOException {
+            return false;
         }
 
         /**
@@ -324,21 +336,20 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
          * Reads byte by byte the input stream matching either
          * the match input byte array or the end page tag
          *
-         * @param match byte array with the matching tag
+         * @param matches List of byte arrays with the matching tags
          * @param withinBlock whether to include the text into the buffer
          * @return 0: Error, 1: match array was matched, 2: pageEndTag was matched
          * @throws IOException Exception
          */
-        private int readUntilMatch(byte[] match, boolean withinBlock)
+        private int readUntilMatch(boolean withinBlock, byte[]... matches)
                 throws IOException {
-            int i = 0;
-            int j = 0;
+            int[] progress = new int[matches.length];
             while (true) {
                 int b = fsin.read();
 
                 // end of file:
                 if (b == -1)
-                    return 0;
+                    return -1;
 
                 // increment position (bytes consumed)
                 pos++;
@@ -347,26 +358,20 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
                 if (withinBlock)
                     buffer.write(b);
 
-                // check if we're matching:
-                if (b == match[i]) {
-                    i++;
-                    if (i >= match.length)
-                        return 1;
-                } else
-                    i = 0;
-
-                // check if this page block has ended
-                if (b == pageEndTag[j]) {
-                    j++;
-                    if (j >= pageEndTag.length)
-                        return 2;
-                } else {
-                    j = 0;
+                // check if we are matching any of the patterns
+                for (int i = 0; i < matches.length; i++) {
+                    if (b == matches[i][progress[i]]) {
+                        progress[i]++;
+                        if (progress[i] >= matches[i].length)
+                            return i;
+                    } else {
+                        progress[i] = 0;
+                    }
                 }
 
                 // see if we've passed the stop point:
-                if (!withinBlock && i == 0 && getFilePosition() >= end)
-                    return 0;
+//                if (!withinBlock && i == 0 && getFilePosition() >= end)
+//                    return -1;
             }
         }
     }
