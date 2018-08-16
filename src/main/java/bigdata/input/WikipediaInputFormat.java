@@ -40,6 +40,7 @@ import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.log4j.BasicConfigurator;
 
@@ -75,7 +76,7 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
      */
     @Override
     public RecordReader<Text, Text> createRecordReader(InputSplit split, TaskAttemptContext context) {
-        return new XMLRecordReader();
+        return new WikipediaRecordReader();
     }
 
     /**
@@ -85,8 +86,8 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
      *
      * @author Jimmy Lin
      */
-    public static class XMLRecordReader extends RecordReader<Text, Text> {
-        private static final Logger LOG = Logger.getLogger(XMLRecordReader.class);
+    public static class WikipediaRecordReader extends RecordReader<Text, Text> {
+        private static final Logger LOG = Logger.getLogger(WikipediaRecordReader.class);
 
         private byte[] pageStartTag;
         private byte[] pageEndTag;
@@ -121,6 +122,8 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
         public void initialize(InputSplit input, TaskAttemptContext context) throws IOException {
             // BasicConfiguration for Log4j
             BasicConfigurator.configure();
+            LOG.setLevel(Level.INFO);
+
             Configuration conf = context.getConfiguration();
 
             pageStartTag = "<page>".getBytes(StandardCharsets.UTF_8);
@@ -215,7 +218,7 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
                         try {
                             buffer.write(revisionStartTag);
                             if (readUntilMatch(true, revisionEndTag) == 0) {
-                                System.out.println("\tRevision found");
+                                LOG.debug("\tRevision found");
                                 key.set(currentTitle);
                                 value.set(buffer.getData(), 0, buffer.getLength());
                                 return true;
@@ -227,7 +230,7 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
                         // page is finished
                         buffer.reset();
                         insidePage = false;
-                        System.out.println("End of article: " + currentTitle);
+                        LOG.info("End of article: " + currentTitle);
 
                         // Since we have now parsed the end of the previous page,
                         // the logic goes back to the top of the loop and will start
@@ -256,13 +259,13 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
                     if (readUntilMatch(true, titleEndTag) == 0) {
                         // remove end tag '</title>' from title
                         currentTitle.set(buffer.getData(), 0, buffer.getLength() - titleEndTag.length);
-                        System.out.println("Streaming Article: " + currentTitle);
+                        LOG.info("Streaming Article: " + currentTitle);
                         buffer.reset();
 
                         // If the page is a redirect, go to the next page
                         // (search for the <redirect> tag
                         if (isRedirect()) {
-                            System.out.println("Page " + currentTitle + " is a redirect. Skipping.");
+                            LOG.info("Page " + currentTitle + " is a redirect. Skipping.");
                             // search for next page
                             return findNextPage();
                         } else {
