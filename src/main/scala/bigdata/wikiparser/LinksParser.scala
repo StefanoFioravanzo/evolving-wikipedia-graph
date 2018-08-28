@@ -1,50 +1,11 @@
 package bigdata.wikiparser
 
-import java.lang
-
 import bigdata.wikiparser.PageParser.Page
 import info.bliki.wiki.model.WikiModel
 import org.apache.commons.lang3.StringEscapeUtils
 import org.htmlcleaner.HtmlCleaner
-import org.joda.time.DateTime
 
 object LinksParser {
-
-  /**
-    * Represent a link from one wiki article to another
-    *
-    * @param pageTitle Title of the current article
-    * @param linkTitle Title of the linked article
-    * @param count The count of links with this title in the page
-    */
-  case class Link(pageTitle: String, linkTitle: String, count: Int)
-
-  class Linkclass(
-                   var pageTitle: String,
-                   var linkTitle: String,
-                   var count: Int = 0,
-                   var from: DateTime = null
-                 ) {
-
-    //NOTE: from field is not included in equal comparison!
-
-    def canEqual(other: Any): Boolean = other.isInstanceOf[Linkclass]
-
-    override def equals(other: Any): Boolean = other match {
-      case that: Linkclass =>
-        (that canEqual this) &&
-          pageTitle == that.pageTitle &&
-          linkTitle == that.linkTitle &&
-          count == that.count
-      case _ => false
-    }
-
-    override def hashCode(): Int = {
-      val state = Seq(pageTitle, linkTitle, count)
-      state.map(_.hashCode()).foldLeft(0)((a, b) => 31 * a + b)
-    }
-
-  }
 
   /**
     * Simple version: returns the links (defines by the <a/> html tag
@@ -67,7 +28,7 @@ object LinksParser {
               && (classType == null || !classType.contains("external"))
             )
         ) yield {
-          Link(page.title, StringEscapeUtils.unescapeHtml4(title), 1)
+          new Link(page.title, StringEscapeUtils.unescapeHtml4(title), 1)
         }
         out.toList
       }  catch {
@@ -106,7 +67,7 @@ object LinksParser {
           StringEscapeUtils.unescapeHtml4(title)
         }
         val counts = out.groupBy(identity).mapValues(_.length)
-        var links = (counts map {case(title:String, count:Int) => Link(pageTitle, title, count)}).toList
+        var links = (counts map {case(title:String, count:Int) => new Link(pageTitle, title, count)}).toList
 
 
         // Now parse the text for other occurrences of the links (not linked)
@@ -130,7 +91,7 @@ object LinksParser {
 
             //TODO: Review the implementation of Link. Now is an immutable class but we might need to update it often
             //TODO: Also the performance of updating an element of a list is quite bad (consider using Vector - or mutable Link class)
-            links = links.updated(i, Link(link.pageTitle, link.linkTitle, link.count + new_links))
+            links = links.updated(i, new Link(link.pageTitle, link.linkTitle, link.count + new_links))
           }
         }
         // return list of links with counts for this page

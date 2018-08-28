@@ -3,7 +3,6 @@ package bigdata.wikiparser
 import java.io.ByteArrayInputStream
 
 import bigdata.input.XMLInputFormat
-import bigdata.wikiparser.LinksParser.Link
 import info.bliki.wiki.dump.{IArticleFilter, Siteinfo, WikiArticle, WikiXMLParser}
 import info.bliki.wiki.filter.WikipediaParser
 import info.bliki.wiki.model.WikiModel

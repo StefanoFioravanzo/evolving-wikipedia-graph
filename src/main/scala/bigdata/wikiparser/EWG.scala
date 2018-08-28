@@ -28,6 +28,10 @@ object EWG {
     val rawRevisions = RevisionParser.readWikiRevisionsFromDump(sc, revisionsFile)
     val revisions = RevisionParser.parseRevisions(rawRevisions)
 
+    val links = RevisionParser.mapPagesToInternalLinksWthIndex(revisions)
+    val links_comb = RevisionParser.combineLinks(links)
+    RevisionParser.sortAndPrintOut(links_comb).collect()
+
     val rawRevisionsCol = rawRevisions.collect()
     val revisionsCol = revisions.collect()
     println("Done.")
