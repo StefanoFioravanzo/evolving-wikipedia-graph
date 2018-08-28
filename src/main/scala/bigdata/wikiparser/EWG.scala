@@ -22,7 +22,8 @@ object EWG {
   }
 
   def parseRevisions(sc: SparkContext): Unit = {
-    val revisionsFile = "data/pages_history_sample.xml"
+//    val revisionsFile = "data/pages_history_sample.xml"
+    val revisionsFile = "hdfs://hadoop-namenode/bigdata/pages_history_sample.xml"
 
     // returns an RDD[(title: String, revision: String)]
     val rawRevisions = RevisionParser.readWikiRevisionsFromDump(sc, revisionsFile)

@@ -1,6 +1,7 @@
 package bigdata.wikiparser
 
 import java.io.{BufferedWriter, OutputStreamWriter}
+import java.net.URI
 
 import util.control.Breaks._
 import org.apache.hadoop.conf.Configuration
@@ -8,7 +9,8 @@ import org.apache.hadoop.io.Text
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import bigdata.input.WikipediaInputFormat
-import org.apache.hadoop.fs.{FSDataOutputStream, FileSystem, Path}
+import org.apache.hadoop.fs.{FSDataOutputStream, FileSystem, LocalFileSystem, Path}
+import org.apache.hadoop.hdfs.DistributedFileSystem
 import org.joda.time.DateTime
 
 // TODO: Substitute all println with LOG
@@ -79,14 +81,48 @@ object RevisionParser {
     println("Writing to HDFS article: " + articleTitle)
     // Init hadoop file system and output stream to write to file
     // source: https://stackoverflow.com/questions/42294899/writing-to-hdfs-in-spark-scala
-    val fs = FileSystem.get(SparkContext.getOrCreate().hadoopConfiguration)
-    val path: Path = new Path("ewg/" + articleTitle.replaceAll("\\s", "")
-    )
-    if (fs.exists(path)) {
-      fs.delete(path, true)
+//    val fs = FileSystem.get(SparkContext.getOrCreate().hadoopConfiguration)
+//    val path: Path = new Path("hdfs://hadoop-namenode/ewg/" + articleTitle.replaceAll("\\s", "")
+//    )
+//    if (fs.exists(path)) {
+//      fs.delete(path, true)
+//    }
+//    val dataOutputStream: FSDataOutputStream = fs.create(path)
+//    val bw: BufferedWriter = new BufferedWriter(new OutputStreamWriter(dataOutputStream, "UTF-8"))
+
+
+
+    // ====== Init HDFS File System Object
+    val conf = new Configuration()
+    // Set FileSystem URI
+    conf.set("fs.defaultFS", "hdfs://hadoop-namenode")
+    // Because of Maven
+    conf.set("fs.hdfs.impl", classOf[DistributedFileSystem].getName)
+    conf.set("fs.file.impl", classOf[LocalFileSystem].getName)
+    // Set HADOOP user
+    System.setProperty("HADOOP_USER_NAME", "hdfs")
+    System.setProperty("hadoop.home.dir", "/")
+    //Get the filesystem - HDFS
+    val fs = FileSystem.get(URI.create("hdfs://hadoop-namenode"), conf)
+
+
+    //==== Create folder if not exists
+
+    val path = "/ewg/"
+    val fileName = articleTitle.replaceAll("\\s", "")
+    val workingDir = fs.getWorkingDirectory
+    val newFolderPath = new Path(path)
+    if (!fs.exists(newFolderPath)) { // Create new Directory
+      fs.mkdirs(newFolderPath)
+//      logger.info("Path " + path + " created.")
     }
-    val dataOutputStream: FSDataOutputStream = fs.create(path)
-    val bw: BufferedWriter = new BufferedWriter(new OutputStreamWriter(dataOutputStream, "UTF-8"))
+
+    //==== Write file
+
+    //Create a path
+    val hdfswritepath = new Path(newFolderPath + "/" + fileName)
+    //Init output stream
+    val outputStream = fs.create(hdfswritepath)
 
     // ------------------------------------------------------------------------------------
 
@@ -154,7 +190,8 @@ object RevisionParser {
         // This includes both links that just changed the count and links that might
         // not be present anymore
         val missing = current.diff(intersection)
-        bw.write(linksArrayToString(ts, missing))
+//        bw.write(linksArrayToString(ts, missing))
+        outputStream.writeBytes(linksArrayToString(ts, missing))
 
         val new_links = links.diff(intersection)
         new_links.foreach {
@@ -165,7 +202,8 @@ object RevisionParser {
       }
     }
 
-    bw.close()
+    outputStream.close()
+    //    bw.close()
     // return some value to make spark execute the transformation
     0
   }
