@@ -79,53 +79,16 @@ object RevisionParser {
 
   def writeToHDFS(articleTitle: String, revisionsLinks: List[(DateTime, List[Link])]): Int = {
     println("Writing to HDFS article: " + articleTitle)
+
     // Init hadoop file system and output stream to write to file
-    // source: https://stackoverflow.com/questions/42294899/writing-to-hdfs-in-spark-scala
-//    val fs = FileSystem.get(SparkContext.getOrCreate().hadoopConfiguration)
-//    val path: Path = new Path("hdfs://hadoop-namenode/ewg/" + articleTitle.replaceAll("\\s", "")
-//    )
-//    if (fs.exists(path)) {
-//      fs.delete(path, true)
-//    }
-//    val dataOutputStream: FSDataOutputStream = fs.create(path)
-//    val bw: BufferedWriter = new BufferedWriter(new OutputStreamWriter(dataOutputStream, "UTF-8"))
-
-
-
-    // ====== Init HDFS File System Object
-    val conf = new Configuration()
-    // Set FileSystem URI
-    conf.set("fs.defaultFS", "hdfs://hadoop-namenode")
-    // Because of Maven
-    conf.set("fs.hdfs.impl", classOf[DistributedFileSystem].getName)
-    conf.set("fs.file.impl", classOf[LocalFileSystem].getName)
-    // Set HADOOP user
-    System.setProperty("HADOOP_USER_NAME", "hdfs")
-    System.setProperty("hadoop.home.dir", "/")
-    //Get the filesystem - HDFS
-    val fs = FileSystem.get(URI.create("hdfs://hadoop-namenode"), conf)
-
-
-    //==== Create folder if not exists
-
     val path = "/ewg/"
     val fileName = articleTitle.replaceAll("\\s", "")
-    val workingDir = fs.getWorkingDirectory
-    val newFolderPath = new Path(path)
-    if (!fs.exists(newFolderPath)) { // Create new Directory
-      fs.mkdirs(newFolderPath)
-//      logger.info("Path " + path + " created.")
-    }
-
-    //==== Write file
-
-    //Create a path
-    val hdfswritepath = new Path(newFolderPath + "/" + fileName)
-    //Init output stream
-    val outputStream = fs.create(hdfswritepath)
+    val outputStream = openLocalFile(path, fileName)
+    val writeToFile = outputStream.write(_)
+//    val outputStream = openHDFSFile(path, fileName)
+//    val writeToFile = outputStream.writeBytes _
 
     // ------------------------------------------------------------------------------------
-
     var current = revisionsLinks.head._2
     // assign first revision date to each link (starting datetime)
     current.foreach {
@@ -190,8 +153,7 @@ object RevisionParser {
         // This includes both links that just changed the count and links that might
         // not be present anymore
         val missing = current.diff(intersection)
-//        bw.write(linksArrayToString(ts, missing))
-        outputStream.writeBytes(linksArrayToString(ts, missing))
+        writeToFile(linksArrayToString(ts, missing))
 
         val new_links = links.diff(intersection)
         new_links.foreach {
@@ -206,6 +168,49 @@ object RevisionParser {
     //    bw.close()
     // return some value to make spark execute the transformation
     0
+  }
+
+  def openLocalFile(path: String, fileName: String): BufferedWriter = {
+    // source: https://stackoverflow.com/questions/42294899/writing-to-hdfs-in-spark-scala
+    val fs = FileSystem.get(SparkContext.getOrCreate().hadoopConfiguration)
+    val path: Path = new Path("hdfs://hadoop-namenode" + path + fileName)
+    if (fs.exists(path)) {
+      fs.delete(path, true)
+    }
+    val dataOutputStream: FSDataOutputStream = fs.create(path)
+    new BufferedWriter(new OutputStreamWriter(dataOutputStream, "UTF-8"))
+  }
+
+  def openHDFSFile(path:String, fileName: String): FSDataOutputStream = {
+    // ====== Init HDFS File System Object
+    val conf = new Configuration()
+    // Set FileSystem URI
+    conf.set("fs.defaultFS", "hdfs://hadoop-namenode")
+    // Because of Maven
+    conf.set("fs.hdfs.impl", classOf[DistributedFileSystem].getName)
+    conf.set("fs.file.impl", classOf[LocalFileSystem].getName)
+    // Set HADOOP user
+    System.setProperty("HADOOP_USER_NAME", "hdfs")
+    System.setProperty("hadoop.home.dir", "/")
+    //Get the filesystem - HDFS
+    val fs = FileSystem.get(URI.create("hdfs://hadoop-namenode"), conf)
+
+
+    //==== Create folder if not exists
+
+    val workingDir = fs.getWorkingDirectory
+    val newFolderPath = new Path(path)
+    if (!fs.exists(newFolderPath)) { // Create new Directory
+      fs.mkdirs(newFolderPath)
+      //      logger.info("Path " + path + " created.")
+    }
+
+    //==== Write file
+
+    //Create a path
+    val hdfswritepath = new Path(newFolderPath + "/" + fileName)
+    //Init output stream
+    fs.create(hdfswritepath)
   }
 
   def linksArrayToString(currentTs: DateTime, links: List[Link]) : String = {
