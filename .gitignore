@@ -20,3 +20,5 @@ project/plugins/project/
 # Docker specific
 hadoop-dfs-data/
 hadoop-dfs-name/
+
+output_data/
