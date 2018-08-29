@@ -79,7 +79,7 @@ public class XMLInputFormat extends TextInputFormat {
      * @author Jimmy Lin
      */
     public static class XMLRecordReader extends RecordReader<LongWritable, Text> {
-        private static final Logger LOG = Logger.getLogger(XMLRecordReader.class);
+        private static final Logger LOG = Logger.getLogger("MyLogger");
 
         private byte[] startTag;
         private byte[] endTag;

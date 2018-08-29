@@ -275,7 +275,7 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
                 }
             } else if (res == -1){
                 // file stream ended
-                System.out.println("Input stream ended.");
+                LOG.debug("Input stream ended.");
                 return false;
             }
             return true;

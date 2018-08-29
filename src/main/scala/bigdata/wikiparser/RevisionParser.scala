@@ -11,10 +11,16 @@ import org.apache.spark.rdd.RDD
 import bigdata.input.WikipediaInputFormat
 import org.apache.hadoop.fs.{FSDataOutputStream, FileSystem, LocalFileSystem, Path}
 import org.apache.hadoop.hdfs.DistributedFileSystem
+import org.apache.log4j.{BasicConfigurator, LogManager, Logger}
 import org.joda.time.DateTime
 
 // TODO: Substitute all println with LOG
 object RevisionParser {
+
+//  val log : Logger = org.apache.log4j.LogManager.getLogger("RevisionParser")
+//  @transient lazy val log = org.apache.log4j.LogManager.getLogger("RevisionParser")
+  val log: Logger = LogManager.getLogger("MyLogger")
+//  BasicConfigurator.configure()
 
   /**
     * Represents a revision from one wiki article
@@ -26,7 +32,7 @@ object RevisionParser {
 
 
   def readWikiRevisionsFromDump(sc: SparkContext, file: String): RDD[(String, String)] = {
-    println("ReadWikiRevisions")
+    log.info("ReadWikiRevisions")
     val rdd = sc.newAPIHadoopFile(file, classOf[WikipediaInputFormat], classOf[Text], classOf[Text], new Configuration())
     rdd.map { case (title, revision) => (new String(title.copyBytes()), new String(revision.copyBytes())) }
   }
@@ -78,15 +84,18 @@ object RevisionParser {
   }
 
   def writeToHDFS(articleTitle: String, revisionsLinks: List[(DateTime, List[Link])]): Int = {
-    println("Writing to HDFS article: " + articleTitle)
+    log.info("Writing to HDFS article: " + articleTitle)
 
     // Init hadoop file system and output stream to write to file
+//    val path = "ewg/"
+//    val fileName = articleTitle.replaceAll("\\s", "")
+//    val outputStream = openLocalFile(path, fileName)
+//    val writeToFile = outputStream.write(_: String)
+
     val path = "/ewg/"
     val fileName = articleTitle.replaceAll("\\s", "")
-    val outputStream = openLocalFile(path, fileName)
-    val writeToFile = outputStream.write(_)
-//    val outputStream = openHDFSFile(path, fileName)
-//    val writeToFile = outputStream.writeBytes _
+    val outputStream = openHDFSFile(path, fileName)
+    val writeToFile = outputStream.writeBytes _
 
     // ------------------------------------------------------------------------------------
     var current = revisionsLinks.head._2
@@ -170,10 +179,10 @@ object RevisionParser {
     0
   }
 
-  def openLocalFile(path: String, fileName: String): BufferedWriter = {
+  def openLocalFile(filePath: String, fileName: String): BufferedWriter = {
     // source: https://stackoverflow.com/questions/42294899/writing-to-hdfs-in-spark-scala
     val fs = FileSystem.get(SparkContext.getOrCreate().hadoopConfiguration)
-    val path: Path = new Path("hdfs://hadoop-namenode" + path + fileName)
+    val path: Path = new Path(filePath + fileName)
     if (fs.exists(path)) {
       fs.delete(path, true)
     }
@@ -181,7 +190,7 @@ object RevisionParser {
     new BufferedWriter(new OutputStreamWriter(dataOutputStream, "UTF-8"))
   }
 
-  def openHDFSFile(path:String, fileName: String): FSDataOutputStream = {
+  def openHDFSFile(filePath:String, fileName: String): FSDataOutputStream = {
     // ====== Init HDFS File System Object
     val conf = new Configuration()
     // Set FileSystem URI
@@ -199,7 +208,7 @@ object RevisionParser {
     //==== Create folder if not exists
 
     val workingDir = fs.getWorkingDirectory
-    val newFolderPath = new Path(path)
+    val newFolderPath = new Path(filePath)
     if (!fs.exists(newFolderPath)) { // Create new Directory
       fs.mkdirs(newFolderPath)
       //      logger.info("Path " + path + " created.")

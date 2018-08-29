@@ -1,5 +1,6 @@
 package bigdata.wikiparser
 
+import org.apache.log4j.{LogManager, Logger, PropertyConfigurator}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -11,12 +12,19 @@ and use another map from id to title to get back the title in the end.
  */
 
 object EWG {
-  // TODO: Substitute all println with LOG
+
+//  val log: Logger = org.apache.log4j.LogManager.getLogger("EWG")
+  val log: Logger = LogManager.getLogger("MyLogger")
+
   def main(args: Array[String]) {
+//    val log4jConfPath = "spark-log.log4j.properties"
+//    PropertyConfigurator.configure(log4jConfPath)
+
     val conf = new SparkConf()
       .setAppName("EvolvingWikipediaGraph")
-      .setMaster("local")
+//      .setMaster("local")
     val sc = new SparkContext(conf)
+    sc.setLogLevel("WARN")
 
     parseRevisions(sc)
   }
@@ -35,7 +43,7 @@ object EWG {
 
     val rawRevisionsCol = rawRevisions.collect()
     val revisionsCol = revisions.collect()
-    println("Done.")
+    log.info("Done.")
   }
 
   def parsePagesLinks(sc: SparkContext): Unit = {
@@ -57,6 +65,6 @@ object EWG {
 
     //    links.coalesce(1).saveAsTextFile("hdfs://hadoop-namenode/bigdata/output")
 
-    println("Done.")
+    log.info("Done.")
   }
 }
