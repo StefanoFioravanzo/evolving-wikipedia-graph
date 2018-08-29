@@ -1,8 +1,10 @@
 package bigdata.wikiparser
 
-import org.apache.log4j.{LogManager, Logger, PropertyConfigurator}
+import org.apache.log4j.{LogManager, Logger}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
+
+import com.typesafe.config.{ConfigFactory, Config}
 
 /*
 Notes on improvements:
@@ -13,16 +15,17 @@ and use another map from id to title to get back the title in the end.
 
 object EWG {
 
-//  val log: Logger = org.apache.log4j.LogManager.getLogger("EWG")
   val log: Logger = LogManager.getLogger("MyLogger")
+  val myConf: Config = ConfigFactory.load()
+  val env: String = myConf.getString("ewg.env")
 
   def main(args: Array[String]) {
-//    val log4jConfPath = "spark-log.log4j.properties"
-//    PropertyConfigurator.configure(log4jConfPath)
 
-    val conf = new SparkConf()
-      .setAppName("EvolvingWikipediaGraph")
-//      .setMaster("local")
+
+    val conf = new SparkConf().setAppName("EvolvingWikipediaGraph")
+    if (env == "local") {
+      conf.setMaster("local")
+    }
     val sc = new SparkContext(conf)
     sc.setLogLevel("WARN")
 
@@ -30,8 +33,7 @@ object EWG {
   }
 
   def parseRevisions(sc: SparkContext): Unit = {
-//    val revisionsFile = "data/pages_history_sample.xml"
-    val revisionsFile = "hdfs://hadoop-namenode/bigdata/pages_history_sample.xml"
+    val revisionsFile = myConf.getString(s"ewg.$env.revisions-file")
 
     // returns an RDD[(title: String, revision: String)]
     val rawRevisions = RevisionParser.readWikiRevisionsFromDump(sc, revisionsFile)
@@ -48,9 +50,7 @@ object EWG {
 
   def parsePagesLinks(sc: SparkContext): Unit = {
     // Should be some file on your system
-    val wikiFile = "data/enwiki-latest-pages-articles1.xml-p10p30302.2megs"
-    //    val wikiFile = "data/enwiki-latest-pages-articles1.xml-p10p30302.bz2.2megs"
-    //    val wikiFile = "hdfs://hadoop-namenode/bigdata/enwiki-latest-pages-articles1.xml-p10p30302.2megs"
+    val wikiFile = myConf.getString(s"ewg.$env.wiki-pages-file")
 
     val raw_pages_text = PageParser.readWikiPagesFromDump(sc, wikiFile)
     val pages = PageParser.parsePagesWithIndex(raw_pages_text)

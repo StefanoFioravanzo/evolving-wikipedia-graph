@@ -1,26 +1,24 @@
 package bigdata.wikiparser
 
-import java.io.{BufferedWriter, OutputStreamWriter}
 import java.net.URI
-
 import util.control.Breaks._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.io.Text
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import bigdata.input.WikipediaInputFormat
-import org.apache.hadoop.fs.{FSDataOutputStream, FileSystem, LocalFileSystem, Path}
-import org.apache.hadoop.hdfs.DistributedFileSystem
-import org.apache.log4j.{BasicConfigurator, LogManager, Logger}
+import com.typesafe.config.{Config, ConfigFactory}
+import org.apache.hadoop.fs.{FSDataOutputStream, FileSystem, Path}
+import org.apache.log4j.{LogManager, Logger}
 import org.joda.time.DateTime
 
-// TODO: Substitute all println with LOG
+import bigdata.input.WikipediaInputFormat
+
 object RevisionParser {
 
-//  val log : Logger = org.apache.log4j.LogManager.getLogger("RevisionParser")
 //  @transient lazy val log = org.apache.log4j.LogManager.getLogger("RevisionParser")
   val log: Logger = LogManager.getLogger("MyLogger")
-//  BasicConfigurator.configure()
+  val myConf: Config = ConfigFactory.load()
+  val env: String = myConf.getString("ewg.env")
 
   /**
     * Represents a revision from one wiki article
@@ -87,12 +85,7 @@ object RevisionParser {
     log.info("Writing to HDFS article: " + articleTitle)
 
     // Init hadoop file system and output stream to write to file
-//    val path = "ewg/"
-//    val fileName = articleTitle.replaceAll("\\s", "")
-//    val outputStream = openLocalFile(path, fileName)
-//    val writeToFile = outputStream.write(_: String)
-
-    val path = "/ewg/"
+    val path = myConf.getString(s"ewg.$env.output-path")
     val fileName = articleTitle.replaceAll("\\s", "")
     val outputStream = openHDFSFile(path, fileName)
     val writeToFile = outputStream.writeBytes _
@@ -174,36 +167,27 @@ object RevisionParser {
     }
 
     outputStream.close()
-    //    bw.close()
     // return some value to make spark execute the transformation
     0
   }
 
-  def openLocalFile(filePath: String, fileName: String): BufferedWriter = {
-    // source: https://stackoverflow.com/questions/42294899/writing-to-hdfs-in-spark-scala
-    val fs = FileSystem.get(SparkContext.getOrCreate().hadoopConfiguration)
-    val path: Path = new Path(filePath + fileName)
-    if (fs.exists(path)) {
-      fs.delete(path, true)
-    }
-    val dataOutputStream: FSDataOutputStream = fs.create(path)
-    new BufferedWriter(new OutputStreamWriter(dataOutputStream, "UTF-8"))
-  }
-
   def openHDFSFile(filePath:String, fileName: String): FSDataOutputStream = {
     // ====== Init HDFS File System Object
-    val conf = new Configuration()
-    // Set FileSystem URI
-    conf.set("fs.defaultFS", "hdfs://hadoop-namenode")
-    // Because of Maven
-    conf.set("fs.hdfs.impl", classOf[DistributedFileSystem].getName)
-    conf.set("fs.file.impl", classOf[LocalFileSystem].getName)
-    // Set HADOOP user
-    System.setProperty("HADOOP_USER_NAME", "hdfs")
-    System.setProperty("hadoop.home.dir", "/")
+    var fs: FileSystem = null
     //Get the filesystem - HDFS
-    val fs = FileSystem.get(URI.create("hdfs://hadoop-namenode"), conf)
-
+    if (env == "local") {
+      fs = FileSystem.get(SparkContext.getOrCreate().hadoopConfiguration)
+    } else if (env == "dist") {
+      var conf = new Configuration()
+      // Set FileSystem URI
+      conf.set("fs.defaultFS", "hdfs://hadoop-namenode")
+      // Set HADOOP user
+      System.setProperty("HADOOP_USER_NAME", "hdfs")
+      System.setProperty("hadoop.home.dir", "/")
+      fs = FileSystem.get(URI.create("hdfs://hadoop-namenode"), conf)
+    } else {
+      throw new Exception("Wrong env conf")
+    }
 
     //==== Create folder if not exists
 
