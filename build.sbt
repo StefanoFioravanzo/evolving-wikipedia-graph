@@ -13,10 +13,16 @@ outputStrategy := Some(StdoutOutput)
 
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % "2.3.1" %"provided",
+
   "org.apache.spark" %% "spark-sql" % "2.3.1" %"provided",
+
   "net.sourceforge.htmlcleaner" % "htmlcleaner" % "2.21",
+
   "info.bliki.wiki" % "bliki-core" % "3.1.0",
-  "com.typesafe" % "config" % "1.3.2"
+
+  "com.typesafe" % "config" % "1.3.2",
+
+  "org.apache.logging.log4j" % "log4j-api" % "2.8.2"
 )
 
 // Resolve dependency conflict for SLF4J
