@@ -7,6 +7,7 @@ mkdir output_data
 # copy latest data from hdfs
 docker run -it --rm \
     --name hdfs-shell \
+    # map local folder output_data
     --volume "`pwd`"/output_data:/output_data \
     --network sandbox-cluster \
     -e "CORE_CONF_fs_defaultFS=hdfs://hadoop-namenode:8020" \

@@ -45,7 +45,7 @@ Under `src/main/scala/bigdata/wikiparser/` can be found all the spark applicatio
 
 The project relies on the SBT build system, all the dependencies are defined in `build.sbt`. To compile and run the project run the following commands from the root of the project:
 
-TODOL show how to run and compile with out using fat jars
+**TODO: show how to run and compile with out using fat jars**
 
 ```bash
 sbt compile
@@ -55,6 +55,14 @@ sbt run
 To just test and debug the application you can run run Spark in local mode, so that the Spark and Hadoop environment will be virtualized on the local machine.
 
 Environment configuration can be set in `src/main/resources/application.conf` by settings the `env` parameter either to `local` or `dist` (to be used with the docker environment running).
+
+To deploy the application to a spark cluster, we need to crate a fat jar with all the needed dependencies packaged inside the jar file. To do this we rely on an sbt plugin `sbt-assembly`. To create the fat jar:
+
+```
+sbt assembly
+```
+
+The command will create a fat jar under `target/` directory.
 
 **Workflow**
 
@@ -86,3 +94,10 @@ The spark master container will map the spark web ui dashboard to `localhost:707
 
 #### Deploy with spark-submit.sh
 
+In order to deploy a spark job to a spark cluster we need to use spark-submit.sh, a spark provided script that will take care of properly setting up the environment for the application to run.
+
+After creating an application far jar as explained before, we can deploy it to our docker cluster using the `launch_spark_submit.sh` script located at the root of the project. It is important to set the correct application class entrypoint and the path to the fat jar at the top of the script.
+
+#### Output data
+
+Once the job has finished running, all the files will be saved in HDFS under the folder `/ewg`. To download the output data to local file system for better handling 

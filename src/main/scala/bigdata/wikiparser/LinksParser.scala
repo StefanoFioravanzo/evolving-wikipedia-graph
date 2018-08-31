@@ -94,7 +94,7 @@ object LinksParser {
           // regex approach
           var new_links = link.linkTitle.r.findAllMatchIn(text).length
           if (new_links > 0) {
-           log.debug(s"Page $pageTitle: Update link ${link.linkTitle} with new $new_links links")
+           // log.debug(s"Page $pageTitle: Update link ${link.linkTitle} with new $new_links links")
             // update Link object with new count
             // TOOD: Update directly the count wihtout creating a new object
             links = links.updated(i, new Link(link.pageTitle, link.linkTitle, link.count + new_links))
