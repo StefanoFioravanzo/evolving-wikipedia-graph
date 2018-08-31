@@ -18,7 +18,7 @@ List of edges Article A:
 
 So every article has a reference to the pages it is linked to, and every link is valid in a temporal range with its reference count. As the page is revisioned, its link counts may change, as can be seen by the link to PageB.
 
---
+---
 
 ### Data
 
@@ -130,7 +130,7 @@ hdfs dsf -put <localsrc> <dst>
 hdfs dfs -cat <file_path>
 ```
 
-For more commands refer to the [official guide] (https://hadoop.apache.org/docs/r2.4.1/hadoop-project-dist/hadoop-common/FileSystemShell.html).
+For more commands refer to the [official guide](https://hadoop.apache.org/docs/r2.4.1/hadoop-project-dist/hadoop-common/FileSystemShell.html).
 
 **Spark Cluster**
 
