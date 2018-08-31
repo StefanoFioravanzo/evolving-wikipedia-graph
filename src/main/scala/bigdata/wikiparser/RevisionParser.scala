@@ -17,6 +17,7 @@ object RevisionParser {
 
 //  @transient lazy val log = org.apache.log4j.LogManager.getLogger("RevisionParser")
   val log: Logger = LogManager.getLogger("MyLogger")
+  // Load custon configuration from src/main/resources/application.conf
   val myConf: Config = ConfigFactory.load()
   val env: String = myConf.getString("ewg.env")
 
@@ -29,6 +30,13 @@ object RevisionParser {
   case class Revision(timestamp: DateTime, text: String)
 
 
+  /**
+    * Init the WikipediaInputFormat Hadoop distributed reader to stream in the wikipedia input file.
+    * Each input (a single <articleTitle, revision> couple) is returned as an element of an RDD
+    *
+    * @param sc SparkContext
+    * @return file Wikipedia input file path
+    */
   def readWikiRevisionsFromDump(sc: SparkContext, file: String): RDD[(String, String)] = {
     log.info("ReadWikiRevisions")
     val rdd = sc.newAPIHadoopFile(file, classOf[WikipediaInputFormat], classOf[Text], classOf[Text], new Configuration())
@@ -36,14 +44,19 @@ object RevisionParser {
   }
 
   /**
-    * Parses the raw revision text produced by HadoopInputFormat into Revision objects
+    * Parse the raw revision text produced by WikipediaInputFormat into Revision objects
+    *
+    * @param rdd RDD with article title as key and revision raw text as value
     */
   def parseRevisions(rdd: RDD[(String, String)]): RDD[(String, Revision)] = {
     rdd.mapValues { text => { parseRevisionFromRawText(text) }}
   }
 
   /**
-    * Parses a revision from raw xml text.
+    * Parses a revision from raw xml text into a Revision object
+    *
+    * @param text Raw revision text
+    * @return Revision object with revision timestamp and text
     */
   def parseRevisionFromRawText(text: String): Revision = {
     // load revision into XML object
@@ -74,23 +87,37 @@ object RevisionParser {
   }
 
   /**
-    * Sort all the links of an article and apply the final algo
+    * Sort all the links of an article and apply the final edge producing algorithm
     */
   def sortAndPrintOut(rdd: RDD[(String, Iterable[(DateTime, List[Link])])]): RDD[Int] = {
     //    rdd.mapValues { l => l.toList.sortWith(_.compareTo(_) < 0)}
+    // sort all the links of an sticle by the timestamp (using getMillis()) and map each sorted
+    // list to writeToHDFS method.
     rdd.mapValues { l => l.toList.sortBy(_._1.getMillis()) }.map { case (k, v) => writeToHDFS(k, v) }
   }
 
+  /**
+    * Write to a single article file (named after the articleTitle) the list of edges
+    * of the temporal graph.
+    * Each edge comes in the form:
+    *   [start_date, end_data] linkPageTitle count
+    *
+    * Each link count can change through time, so we keep track of these changes as 
+    * we scan the list of links and write to file a new edge each time a link disappears or
+    * its count changes.
+    */
   def writeToHDFS(articleTitle: String, revisionsLinks: List[(DateTime, List[Link])]): Int = {
     log.info("Writing to HDFS article: " + articleTitle)
 
     // Init hadoop file system and output stream to write to file
     val path = myConf.getString(s"ewg.$env.output-path")
     val fileName = articleTitle.replaceAll("\\s", "")
+    // open an output stream to either HDFS or local file system based on configuration
     val outputStream = openHDFSFile(path, fileName)
     val writeToFile = outputStream.writeBytes _
 
     // ------------------------------------------------------------------------------------
+    // get first link in the list
     var current = revisionsLinks.head._2
     // assign first revision date to each link (starting datetime)
     current.foreach {
@@ -114,35 +141,41 @@ object RevisionParser {
      */
 
 
+    // iterate over the link
     for ((ts, links) <- revisionsLinks) {
+      // this `breakable` construct is the scala way of providing the `continue` 
+      // keyword inside a for loop
       breakable {
 
         // in case our current buffer of links is empty, we need to search
         // for the next revision with some links in it
-        // This might happens in case the first revisions of the history
+        // This might happen in case the first revisions of the history
         // of a page do not contain any link
         if (current.isEmpty) {
           current = links
+          // assign current timestamp
           current.foreach {
             _.from = ts
           }
+          // (continue to next iteration)
           break
         }
 
         // In case the next revision contains exactly the same links
-        // (with the same counts) - or some new that were not present before
+        // (with the same counts) - or some new that were not present before -
         // as the previous revision, we just go on to the next revision
         // adding the new links
         val intersection = current.intersect(links)
         if (intersection.length == current.length) {
-
           // get the new links and add them to the current buffer
           links.foreach {
             _.from = ts
           }
           // links in `current` have priority over links in `links`
+          // need to use distict because `union()` does not automatically
+          // discard equal objects
           current = current.union(links).distinct
-
+          // (continue to next iteration)
           break
         }
 
@@ -155,6 +188,7 @@ object RevisionParser {
         // This includes both links that just changed the count and links that might
         // not be present anymore
         val missing = current.diff(intersection)
+        // outputStream write function
         writeToFile(linksArrayToString(ts, missing))
 
         val new_links = links.diff(intersection)
@@ -162,6 +196,7 @@ object RevisionParser {
           _.from = ts
         }
 
+        // update current link buffer with the new_links
         current = new_links.union(intersection).distinct
       }
     }
@@ -171,8 +206,14 @@ object RevisionParser {
     0
   }
 
+  /**
+    Open an output stream to a new article file
+    Based on application.conf environment configuration, the function
+    will open a stream to a local file or an file in HDFS.
+    */
   def openHDFSFile(filePath:String, fileName: String): FSDataOutputStream = {
     // ====== Init HDFS File System Object
+
     var fs: FileSystem = null
     //Get the filesystem - HDFS
     if (env == "local") {
@@ -193,19 +234,22 @@ object RevisionParser {
 
     val workingDir = fs.getWorkingDirectory
     val newFolderPath = new Path(filePath)
-    if (!fs.exists(newFolderPath)) { // Create new Directory
+    if (!fs.exists(newFolderPath)) { 
+      // Create new Directory
       fs.mkdirs(newFolderPath)
-      //      logger.info("Path " + path + " created.")
     }
 
     //==== Write file
 
-    //Create a path
+    // Create a path
     val hdfswritepath = new Path(newFolderPath + "/" + fileName)
-    //Init output stream
+    // Init and return output stream
     fs.create(hdfswritepath)
   }
 
+  /**
+    * Transform Link list to printable edges string
+    */
   def linksArrayToString(currentTs: DateTime, links: List[Link]) : String = {
     var res = ""
     links.foreach { link =>

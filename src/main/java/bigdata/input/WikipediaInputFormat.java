@@ -1,17 +1,3 @@
-/*
- * Licensed under the Apache License, Version 2.0 (the "License"); you
- * may not use this file except in compliance with the License. You may
- * obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package bigdata.input;
 
 import java.io.InputStream;
@@ -52,12 +38,7 @@ import org.apache.log4j.BasicConfigurator;
 
 
 /**
- * A simple {@link org.apache.hadoop.mapreduce.InputFormat} for XML documents ({@code
- * org.apache.hadoop.mapreduce} API). The class recognizes begin-of-document and end-of-document
- * tags only: everything between those delimiting tags is returned in an uninterpreted {@code Text}
- * object.
- *
- * @author Jimmy Lin
+
  */
 public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
      /**
@@ -77,11 +58,6 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
     }
 
     /**
-     * Simple {@link org.apache.hadoop.mapreduce.RecordReader} for XML documents ({@code
-     * org.apache.hadoop.mapreduce} API). Recognizes begin-of-document and end-of-document tags only:
-     * everything between those delimiting tags is returned in a {@link Text} object.
-     *
-     * @author Jimmy Lin
      */
     public static class WikipediaRecordReader extends RecordReader<Text, Text> {
         private static final Logger LOG = Logger.getLogger(WikipediaRecordReader.class);
@@ -117,12 +93,14 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
          */
         @Override
         public void initialize(InputSplit input, TaskAttemptContext context) throws IOException {
+            // TODO: Init logger with custom config
             // BasicConfiguration for Log4j
             BasicConfigurator.configure();
             LOG.setLevel(Level.INFO);
 
             Configuration conf = context.getConfiguration();
 
+            // define the mathing tags
             pageStartTag = "<page>".getBytes(StandardCharsets.UTF_8);
             pageEndTag = "</page>".getBytes(StandardCharsets.UTF_8);
             titleStartTag = "<title>".getBytes(StandardCharsets.UTF_8);
@@ -138,6 +116,7 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
             end = start + split.getLength();
             Path file = split.getPath();
 
+            // load Bz2 compression codec 
             CompressionCodecFactory compressionCodecs = new CompressionCodecFactory(conf);
             codec = compressionCodecs.getCodec(file);
 
@@ -191,8 +170,6 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
         @Override
         public boolean nextKeyValue() throws IOException {
             if (getFilePosition() < end) {
-
-                //TODO: Improve this logic
                 while(true) {
                     int res;
                     if (!insidePage) {
@@ -210,7 +187,7 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
                         res = readUntilMatch(false, revisionStartTag, pageEndTag);
                     }
 
-                    //TODO: Assuming there are no pages without revisions
+                    //TODO: Assuming there are no pages without revisions (???)
                     if (res == 0) {
                         try {
                             buffer.write(revisionStartTag);

@@ -83,3 +83,6 @@ docker-compose -f docker-compose-spark-cluster.yml up --scale spark-worker=2
 You can set whatever number of workers you prefer with the `--scale` argument. Current the compose file supports a maximum of 10 worker due to port allocation range. If you want to spin up > 10 workers, increase the port range mapping in the docker-compose file.
 
 The spark master container will map the spark web ui dashboard to `localhost:7077`, while the workers dashboards will be mapped form port `8081` and increasing.
+
+#### Deploy with spark-submit.sh
+
