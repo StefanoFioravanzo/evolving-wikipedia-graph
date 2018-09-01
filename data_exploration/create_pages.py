@@ -1,3 +1,12 @@
+"""
+Author: Stefano Fioravanzo
+
+Helper script to do some data exploration on the wikipedia revsion files
+
+The script base behaviour is to parse a single history file and produce 
+a single file for each page article with all its revisions
+"""
+
 import lxml.etree as etree
 from lxml.etree import XMLParser
 import fileinput
@@ -5,8 +14,8 @@ import re
 import time
 from pathlib import Path
 
-file_path = "/Users/StefanoFiora/Downloads/wikipedia/enwiki-latest-pages-meta-history1.xml-p10p2103.bz2"
-ext_file_path = "/Volumes/SFHDD/bigdata/wikipedia/enwiki-latest-pages-meta-history1.xml-p10p2103"
+DATA_FOLDER = "/Volumes/SFHDD/bigdata/wikipedia/"
+ext_file_path = DATA_FOLDER + "enwiki-latest-pages-meta-history1.xml-p10p2103"
 
 def xml_parser():
     p = XMLParser(huge_tree=True)
@@ -60,9 +69,10 @@ def stream_from_compressed(file_path, pages=4):
     if not page.closed:
         page.close()
 
-# def save_from_xml(file_path, pages=4):
+
 counter = 0
-# pages = 15
+# skip the forst N articles
+start_from = 0
 input = fileinput.FileInput(ext_file_path)
 
 open_pattern = re.compile(r'<page>')
@@ -72,10 +82,29 @@ title_pattern = re.compile(r'(<title>)(.*)(</title>)')
 writing_page = False
 have_title = False
 # current directory
-p = Path('/Volumes/SFHDD/bigdata/wikipedia/pages/page.xml')
-page = open('/Volumes/SFHDD/bigdata/wikipedia/pages/page.xml', "w")
+p = Path(DATA_FOLDER + 'pages/page.xml')
+page = open(DATA_FOLDER + 'pages/page.xml', "w")
 title = "default.xml"
+# iterate file line by line (stream in, not read entirely into memory)
 for line in input:
+
+    # if we want to skip some articles, just search for
+    # enclosing page tag and skip text
+    if counter < start_from:
+        if not writing_page:
+            m = open_pattern.search(line)
+            if not m:
+                continue
+            writing_page = True
+        else:
+            m = close_pattern.search(line)
+            if not m:
+                continue
+            writing_page = False
+            print(f"Skipped article {counter}")
+            counter += 1
+        continue
+
     # When an input file is .bz2 or .gz, line can be a bytes string
     # if not isinstance(line, str): line = line.decode('utf-8')
     if not writing_page:
@@ -83,9 +112,11 @@ for line in input:
         if not m:
             continue
         else:
+            # found new page
             writing_page = True
             page.write(line)
     else:
+        # write new page lines
         page.write(line)
         if not have_title:
             m = title_pattern.search(line)
@@ -94,20 +125,20 @@ for line in input:
                 # get title
                 title = re.escape(m.group(2))
                 have_title = True
+        # end of article
         m = close_pattern.search(line)
         if not m:
             continue
-        write = False
+        writing_page = False
         have_title = False
+
+        # save article revisions contents in file with `articleTitle` name
         new_filename = f"{counter}-{title}{p.suffix}"
         counter += 1
         print(f"Rename {p} to {new_filename}")
         page.close()
         p.rename(Path(p.parent, new_filename))
-        page = open('/Volumes/SFHDD/bigdata/wikipedia/pages/page.xml', "w")
-        # pages -= 1
-        # if pages == 0:
-        #     break
+        page = open(DATA_FOLDER + 'pages/page.xml', "w")
 
 if not page.closed:
     page.close()

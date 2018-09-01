@@ -55,7 +55,7 @@ All of the Spark transformations are in `LinkParser.scala` and `RevisionParser.s
 
 Under `data/` can be found some small data samples resembling the structure of a real wikipedia history file, used to test and debug the application logic.
 
-`pages_history_samples` contains a few articles with some revisions, taken from the first history file, both in xml and in bz2 compressed format.
+The files `history_revisions_*` contain a few articles with some revisions, taken from the first big history file, both in xml and in bz2 compressed format. These files were created taking the first 1-2 MBytes from a few articles files, produced using `data_exploration/create_pages.py`.
 
 `articles1` is an extract from the first "articles" wikipedia dump - the first 2Mbytes - used for testing.
 
