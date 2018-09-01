@@ -10,4 +10,5 @@ docker run -it --rm \
   --entrypoint spark-submit \
   --network sandbox-cluster \
   --volume "${PWD}/./":/project \
-  -t bigdata/spark --class ${CLASS} --master ${MASTER} /project/${TARGET} ${ARGS}
+  -t bigdata/spark --class ${CLASS} --master ${MASTER} \
+  /project/${TARGET} ${ARGS}

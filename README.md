@@ -80,8 +80,6 @@ Under `src/main/scala/bigdata/wikiparser/` can be found all the spark applicatio
 
 The project relies on the SBT build system, all the dependencies are defined in `build.sbt`. To compile and run the project run the following commands from the root of the project:
 
-**TODO: show how to run and compile with out using fat jars**
-
 ```bash
 sbt compile
 sbt run
