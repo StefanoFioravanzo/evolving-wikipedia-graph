@@ -1,6 +1,7 @@
 package bigdata.wikiparser
 
 import java.net.URI
+
 import util.control.Breaks._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.io.Text
@@ -8,16 +9,17 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.{FSDataOutputStream, FileSystem, Path}
-import org.apache.log4j.{LogManager, Logger}
+import org.apache.logging.log4j.{Level, LogManager, Logger}
+import org.apache.logging.log4j.core.config.Configurator
 import org.joda.time.DateTime
-
 import bigdata.input.WikipediaInputFormat
 
 object RevisionParser {
 
 //  @transient lazy val log = org.apache.log4j.LogManager.getLogger("RevisionParser")
   val log: Logger = LogManager.getLogger("MyLogger")
-  // Load custon configuration from src/main/resources/application.conf
+  Configurator.setLevel(log.getName, Level.INFO)
+  // Load custom configuration from src/main/resources/application.conf
   val myConf: Config = ConfigFactory.load()
   val env: String = myConf.getString("ewg.env")
 

@@ -39,8 +39,8 @@ import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
-import org.apache.log4j.Logger;
-import org.apache.log4j.BasicConfigurator;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * A simple {@link org.apache.hadoop.mapreduce.InputFormat} for XML documents ({@code
@@ -79,7 +79,7 @@ public class XMLInputFormat extends TextInputFormat {
      * @author Jimmy Lin
      */
     public static class XMLRecordReader extends RecordReader<LongWritable, Text> {
-        private static final Logger LOG = Logger.getLogger("MyLogger");
+        private static final Logger LOG = LogManager.getLogger("MyLogger");
 
         private byte[] startTag;
         private byte[] endTag;
@@ -108,7 +108,6 @@ public class XMLInputFormat extends TextInputFormat {
         @Override
         public void initialize(InputSplit input, TaskAttemptContext context)
                 throws IOException, InterruptedException {
-            BasicConfigurator.configure();
             Configuration conf = context.getConfiguration();
             if (conf.get(START_TAG_KEY) == null || conf.get(END_TAG_KEY) == null)
                 throw new RuntimeException("Error! XML start and end tags unspecified!");

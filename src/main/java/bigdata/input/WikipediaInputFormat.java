@@ -23,9 +23,10 @@ import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.log4j.BasicConfigurator;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.config.Configurator;
 
 /*
  * NOTE: Custom modifications
@@ -60,7 +61,7 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
     /**
      */
     public static class WikipediaRecordReader extends RecordReader<Text, Text> {
-        private static final Logger LOG = Logger.getLogger(WikipediaRecordReader.class);
+        private static final Logger LOG = LogManager.getLogger(WikipediaRecordReader.class);
 
         private byte[] pageStartTag;
         private byte[] pageEndTag;
@@ -93,11 +94,7 @@ public class WikipediaInputFormat extends FileInputFormat<Text, Text> {
          */
         @Override
         public void initialize(InputSplit input, TaskAttemptContext context) throws IOException {
-            // TODO: Init logger with custom config
-            // BasicConfiguration for Log4j
-            BasicConfigurator.configure();
-            LOG.setLevel(Level.INFO);
-
+            Configurator.setLevel(LOG.getName(), Level.INFO);
             Configuration conf = context.getConfiguration();
 
             // define the mathing tags

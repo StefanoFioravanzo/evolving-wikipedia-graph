@@ -1,10 +1,11 @@
 package bigdata.wikiparser
 
-import org.apache.log4j.{LogManager, Logger}
+import org.apache.logging.log4j.{Level, LogManager, Logger}
+import org.apache.logging.log4j.core.config.Configurator
+import org.apache.logging.log4j.core.config.DefaultConfiguration
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
-
-import com.typesafe.config.{ConfigFactory, Config}
+import com.typesafe.config.{Config, ConfigFactory}
 
 /*
 Notes on improvements:
@@ -19,17 +20,20 @@ and use another map from id to title to get back the title in the end.
 object EWG {
 
   val log: Logger = LogManager.getLogger("MyLogger")
-  // Load custon configuration from src/main/resources/application.conf
+  // Load custom configuration from src/main/resources/application.conf
   val myConf: Config = ConfigFactory.load()
   val env: String = myConf.getString("ewg.env")
 
   def main(args: Array[String]) {
+    // Init Log4j
+    Configurator.initialize(new DefaultConfiguration)
+    Configurator.setLevel(log.getName, Level.INFO)
+    log.info("Start parsing process")
     val conf = new SparkConf().setAppName("EvolvingWikipediaGraph")
     if (env == "local") {
       conf.setMaster("local")
     }
     val sc = new SparkContext(conf)
-    sc.setLogLevel("WARN")
 
     parseRevisions(sc)
   }
@@ -43,7 +47,7 @@ object EWG {
     val revisionsFile = myConf.getString(s"ewg.$env.revisions-file")
 
     // returns an RDD[(title: String, revision: String)]
-    // stream in all the revisions fron the input file
+    // stream in all the revisions from the input file
     val rawRevisions = RevisionParser.readWikiRevisionsFromDump(sc, revisionsFile)
     // Convert raw revision text to Revision object, getting text value and timestamp
     val revisions = RevisionParser.parseRevisions(rawRevisions)

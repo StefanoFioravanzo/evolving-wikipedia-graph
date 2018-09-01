@@ -4,17 +4,17 @@ version := "0.1"
 
 scalaVersion := "2.11.12"
 
-// options for log4j
 fork in run := true
-javaOptions in run ++= Seq(
-  "-Dlog4j.debug=true",
-  "-Dlog4j.configuration=log4j.properties")
-outputStrategy := Some(StdoutOutput)
 
-libraryDependencies ++= Seq(
-  "org.apache.spark" %% "spark-core" % "2.3.1" %"provided",
+lazy val sparkDep = Seq(
+  "org.apache.spark" %% "spark-core" % "2.3.1"
+//  "org.apache.spark" %% "spark-sql" % "2.3.1"
+)
 
-  "org.apache.spark" %% "spark-sql" % "2.3.1" %"provided",
+lazy val otherDeps = Seq(
+  "org.apache.logging.log4j" % "log4j-core" % "2.5",
+
+  "org.apache.logging.log4j" % "log4j-api" % "2.5",
 
   "net.sourceforge.htmlcleaner" % "htmlcleaner" % "2.21",
 
@@ -22,13 +22,13 @@ libraryDependencies ++= Seq(
 
   "com.typesafe" % "config" % "1.3.2",
 
-  "org.apache.logging.log4j" % "log4j-api" % "2.8.2"
+  "joda-time" % "joda-time" % "2.10"
 )
 
+libraryDependencies ++= sparkDep.map(_ % "provided")
+libraryDependencies ++= otherDeps
 // Resolve dependency conflict for SLF4J
 libraryDependencies ~= { _.map(_.exclude("org.slf4j", "slf4j-log4j12")) }
 
-//assemblyMergeStrategy in assembly := {
-//  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
-//  case x => MergeStrategy.first
-//}
+// use this to make sure the "provided" dependencies are included at runtime (for local development)
+run in Compile := Defaults.runTask(fullClasspath in Compile, mainClass in (Compile, run), runner in (Compile, run)).evaluated
