@@ -52,7 +52,7 @@ object LinksParser {
     * First pass: parse html and retrieve <a/> tags
     * Second pass: regex each found link to search for non-link occurrences in text
     */
-  def parseLinksFromPageContentWithCount(pageText: String, pageTitle: String) : List[Link] = {
+  def parseLinksFromPageContentWithCount(pageText: String) : List[Link] = {
     if (pageText != null) {
       try {
         // convert the wikipedia text to html for easier parsing
@@ -78,8 +78,8 @@ object LinksParser {
         }
         // group by link titles to get the counts
         val counts = out.groupBy(identity).mapValues(_.length)
-        // create Link objects fron link title and count
-        var links = (counts map {case(title:String, count:Int) => new Link(pageTitle, title, count)}).toList
+        // create Link objects from link title and count
+        var links = (counts map {case(title:String, count:Int) => new Link("", title, count)}).toList
 
         // SECOND PASS
         // Now parse the text for other occurrences of the links (not linked)
@@ -100,7 +100,7 @@ object LinksParser {
           if (new_links > 0) {
            // log.debug(s"Page $pageTitle: Update link ${link.linkTitle} with new $new_links links")
             // update Link object with new count
-            // TOOD: Update directly the count wihtout creating a new object
+            // TOOD: Update directly the count without creating a new object
             links = links.updated(i, new Link(link.pageTitle, link.linkTitle, link.count + new_links))
           }
         }
@@ -115,7 +115,6 @@ object LinksParser {
   }
 
   def createEWGEdges(writeToFile: String => Unit, revisionsLinks: List[(DateTime, List[Link])]): Unit = {
-    // ------------------------------------------------------------------------------------
     // get first link in the list
     var current = revisionsLinks.head._2
     // assign first revision date to each link (starting datetime)

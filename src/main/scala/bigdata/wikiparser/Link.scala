@@ -6,15 +6,16 @@ import org.joda.time.DateTime
   * Helper class to store information about one link
   *
   @param pageTitle The title of the page this links belongs to
-  @param linkTItle The name of the link (pageTitle of the page pointed to)
+  @param linkTitle The name of the link (pageTitle of the page pointed to)
   @param count How many time this reference appears in the source page
   @param from First revision when this link (with this count) appears in the source page
   */
-class Link ( var pageTitle: String,
-                  var linkTitle: String,
-                  var count: Int = 0,
-                  var from: DateTime = null
-                ) extends Serializable {
+class Link (
+              var pageTitle: String,
+              var linkTitle: String,
+              var count: Int = 0,
+              var from: DateTime = null
+            ) extends Serializable {
 
   def canEqual(other: Any): Boolean = other.isInstanceOf[Link]
 

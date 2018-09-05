@@ -83,7 +83,7 @@ object RevisionParserSequential {
               timestamp = DateTime.parse((rev \ "timestamp").text),
               text = (rev \ "text").text)
             // extract links from revision text and add them to article list of revisions
-            articleRevisions =  (revision.timestamp, LinksParser.parseLinksFromPageContentWithCount(revision.text, "")) :: articleRevisions
+            articleRevisions =  (revision.timestamp, LinksParser.parseLinksFromPageContentWithCount(revision.text)) :: articleRevisions
           }
         case EvElemEnd(_, label) =>
           if (label == "page" && insidePage) {

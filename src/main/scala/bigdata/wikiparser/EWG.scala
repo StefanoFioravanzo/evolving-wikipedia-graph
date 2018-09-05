@@ -6,6 +6,7 @@ import org.apache.logging.log4j.core.config.DefaultConfiguration
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 import com.typesafe.config.{Config, ConfigFactory}
+import org.joda.time.DateTime
 
 /*
 Notes on improvements:
@@ -58,14 +59,10 @@ object EWG {
     val revisionsFile = myConf.getString(s"ewg.$env.revisions-file")
 
     // returns an RDD[(title: String, revision: String)]
-    // stream in all the revisions from the input file
-    val rawRevisions = RevisionParser.readWikiRevisionsFromDump(sc, revisionsFile)
-    // Convert raw revision text to Revision object, getting text value and timestamp
-    val revisions = RevisionParser.parseRevisions(rawRevisions)
-    // Parse revision text to get a list of links with their appearance count
-    val links = RevisionParser.mapPagesToInternalLinksWthIndex(revisions)
+    // stream in all the revisions from the input file and parse the revisions text to produce a list of links for each revision
+    val revisionsLinks: RDD[(String, (DateTime, List[Link]))] = RevisionParser.readWikiRevisionsFromDump(sc, revisionsFile)
     // Group links to "merge" together all the revisions of the same article
-    val links_comb = RevisionParser.combineLinks(links)
+    val links_comb = RevisionParser.combineLinks(revisionsLinks)
     // Sort all the links of all the revisions of an article
     // Parse the sorted list and write to HDFS an edge file for that article
     RevisionParser.sortAndPrintOut(links_comb).collect()

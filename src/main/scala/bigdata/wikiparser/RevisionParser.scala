@@ -3,7 +3,7 @@ package bigdata.wikiparser
 import java.net.URI
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.io.{Text => HadoopText}
+import org.apache.hadoop.io.Text
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import com.typesafe.config.{Config, ConfigFactory}
@@ -38,42 +38,27 @@ object RevisionParser {
     * @param sc SparkContext
     * @return file Wikipedia input file path
     */
-  def readWikiRevisionsFromDump(sc: SparkContext, file: String): RDD[(String, String)] = {
+  def readWikiRevisionsFromDump(sc: SparkContext, file: String): RDD[(String, (DateTime, List[Link]))] = {
     log.info("ReadWikiRevisions")
-    val rdd = sc.newAPIHadoopFile(file, classOf[WikipediaInputFormat], classOf[HadoopText], classOf[HadoopText], new Configuration())
-    rdd.map { case (title, revision) => (new String(title.copyBytes()), new String(revision.copyBytes())) }
+    val rdd = sc.newAPIHadoopFile(file, classOf[WikipediaInputFormat], classOf[Text], classOf[Text], new Configuration())
+    rdd.map { case (title, revision) => parseLinks(title, revision) }
   }
 
   /**
-    * Parse the raw revision text produced by WikipediaInputFormat into Revision objects
-    *
-    * @param rdd RDD with article title as key and revision raw text as value
+    * Get one revision and parse its contents to produce a list of links
     */
-  def parseRevisions(rdd: RDD[(String, String)]): RDD[(String, Revision)] = {
-    rdd.mapValues { text => { parseRevisionFromRawText(text) }}
-  }
+  def parseLinks(articleTitle: Text, revisionXml: Text): (String, (DateTime, List[Link])) = {
+    val title = new String(articleTitle.copyBytes())
+    val xml = new String(revisionXml.copyBytes())
+    val tmp = scala.xml.XML.loadString(xml)
+    // create Revision object from raw data
+    val revision = Revision(
+      timestamp = DateTime.parse((tmp \ "timestamp").text),
+      text = (tmp \ "text").text)
 
-  /**
-    * Parses a revision from raw xml text into a Revision object
-    *
-    * @param text Raw revision text
-    * @return Revision object with revision timestamp and text
-    */
-  def parseRevisionFromRawText(text: String): Revision = {
-    // load revision into XML object
-    val revision = scala.xml.XML.loadString(text)
-    Revision(
-      timestamp = DateTime.parse((revision \ "timestamp").text),
-      text = (revision \ "text").text)
+    // parse revision text and produce list of links
+    (title, (revision.timestamp, LinksParser.parseLinksFromPageContentWithCount(revision.text)))
   }
-
-  /**
-    * Parses internal article links from a Revision object, filtering out links that aren't to articles
-    */
-  def mapPagesToInternalLinksWthIndex(rdd: RDD[(String, Revision)]): RDD[(String, (DateTime, List[Link]))] = {
-    rdd.mapValues { page => (page.timestamp, LinksParser.parseLinksFromPageContentWithCount(page.text, "")) }
-  }
-
 
   /**
     * Reduce all the Link lists of the same page together to procees with the final analysis
@@ -94,7 +79,10 @@ object RevisionParser {
     //    rdd.mapValues { l => l.toList.sortWith(_.compareTo(_) < 0)}
     // sort all the links of an sticle by the timestamp (using getMillis()) and map each sorted
     // list to writeToHDFS method.
-    rdd.mapValues { l => l.toList.sortBy(_._1.getMillis()) }.map { case (k, v) => writeToHDFS(k, v) }
+    rdd.map { case (k, v) => {
+      val sorted = v.toList.sortBy(_._1.getMillis())
+      writeToHDFS(k, sorted)
+    }}
   }
 
   /**
@@ -184,34 +172,5 @@ object RevisionParser {
         .concat("\n")
     }
     res
-  }
-
-  /**
-    * ------------------------------------------------------------------------
-    * FAST VERSION
-    * ------------------------------------------------------------------------
-   */
-
-  def processRevisions(sc: SparkContext, file: String) : RDD[Int] = {
-    val rdd = sc.newAPIHadoopFile(file, classOf[WikipediaInputFormat], classOf[HadoopText], classOf[HadoopText], new Configuration())
-    rdd.map { case (title, revision) => completeProcessing(title, revision) }
-      .groupByKey()
-      .map { case (k, v) => {
-        val sorted = v.toList.sortBy(_._1.getMillis())
-        writeToHDFS(k, sorted)
-      } }
-
-  }
-
-  def completeProcessing(articleTitle: HadoopText, revisionXml: HadoopText): (String, (DateTime, List[Link])) = {
-    val title = new String(articleTitle.copyBytes())
-    val xml = new String(revisionXml.copyBytes())
-
-    var tmp = scala.xml.XML.loadString(xml)
-    val revision = Revision(
-      timestamp = DateTime.parse((tmp \ "timestamp").text),
-      text = (tmp \ "text").text)
-
-    (title, (revision.timestamp, LinksParser.parseLinksFromPageContentWithCount(revision.text, "")))
   }
 }

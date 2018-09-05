@@ -130,7 +130,7 @@ object PageParser {
     * Parses internal article links from a Page object, filtering out links that aren't to articles
     */
   def mapPagesToInternalLinksWthIndex(rdd: RDD[Page]): RDD[(String, List[Link])] = {
-    rdd.map { page => (page.title, LinksParser.parseLinksFromPageContentWithCount(page.text, page.title)) }
+    rdd.map { page => (page.title, LinksParser.parseLinksFromPageContentWithCount(page.text)) }
   }
 
   def mapPagesToInternalLinks(rdd: RDD[Page]): RDD[Link] = {
