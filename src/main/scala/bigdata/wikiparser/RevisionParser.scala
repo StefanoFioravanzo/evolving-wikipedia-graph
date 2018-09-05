@@ -75,7 +75,7 @@ object RevisionParser {
   /**
     * Sort all the links of an article and apply the final edge producing algorithm
     */
-  def sortAndPrintOut(rdd: RDD[(String, Iterable[(DateTime, List[Link])])]): RDD[Int] = {
+  def createFinalOutput(rdd: RDD[(String, Iterable[(DateTime, List[Link])])]): RDD[Int] = {
     //    rdd.mapValues { l => l.toList.sortWith(_.compareTo(_) < 0)}
     // sort all the links of an sticle by the timestamp (using getMillis()) and map each sorted
     // list to writeToHDFS method.

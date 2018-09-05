@@ -65,7 +65,7 @@ object EWG {
     val links_comb = RevisionParser.combineLinks(revisionsLinks)
     // Sort all the links of all the revisions of an article
     // Parse the sorted list and write to HDFS an edge file for that article
-    RevisionParser.sortAndPrintOut(links_comb).collect()
+    RevisionParser.createFinalOutput(links_comb).collect()
 
     log.info("Done.")
   }

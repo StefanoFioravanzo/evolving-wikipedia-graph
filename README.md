@@ -47,9 +47,7 @@ Hadoop `InputFormat` is the component which manages how input files are read and
 
 The mapper job accessing the data through the WikipediaInputFormat will call the method `nextKeyValue` implemented in the `WikipediaInputFormat` class every time is has enough resources to process a new data pair.
 
-To implement all the map and reduce operations to efficiently parse the wikipedia revisions we use Spark, which exposes a simple interface. Scala also helps a lot in writing functional code, being itself a functional first programming language.
-
-All of the Spark transformations are in `LinkParser.scala` and `RevisionParser.scala`.
+To implement all the map and reduce operations to efficiently parse the wikipedia revisions we use Spark. All of the Spark transformations are in `LinkParser.scala` and `RevisionParser.scala`.
 
 ### Sample data
 
@@ -75,6 +73,7 @@ Under `src/main/scala/bigdata/wikiparser/` can be found all the spark applicatio
 - `PageParser.scala`: Collection of spark functions to parse a page and its links
 - `LinkParser.scala`: Helper functions to parse the links and the counts of the links from the text of a page/revision
 - `RevisionParser.scala`: Collection of spark function to parse revisions and write to HDFS the resulting graph nodes/edges
+- `RevisionsParserSequential.scala`: Completely sequential approach to streaming and parsing wikipedia files. Used to benchmark Spark's distributed implementation.
 
 ### Build and Run
 
@@ -89,6 +88,8 @@ To just test and debug the application you can run run Spark in local mode, so t
 
 Environment configuration can be set in `src/main/resources/application.conf` by setting the `env` parameter either to `local` or `dist` (to be used with the docker environment running).
 
+In the local configuration you can set whether to run a local Spark instance of to use the sequential approach with the flag `sequential`.
+
 To deploy the application to a spark cluster, we need to crate a fat jar with all the needed dependencies packaged inside the jar file. To do this we rely on an sbt plugin `sbt-assembly`, which is added to the `project/plugins.sbt` file. To create the fat jar run:
 
 ```
@@ -96,12 +97,6 @@ sbt assembly
 ```
 
 The command will create a fat jar under `target/` directory.
-
-**Workflow**
-
-To have a better understanding of the parsing pipeline the application goes throw, here is the cascade of function calls from the application entrypoint, to the HDFS final write:
-
-`EWG.parseRevisions()` [ Start revision parse job ] -> `RevisionParser.readWikiRevisionsFromDump()` [ Init Hadoop reader to stream in revision file ] -> `RevisionParser.parseRevisions()` [ Map job to parse the links in article text ] -> `RevisionParser.mapPagesToInternalLinksWthIndex()` -> `RevisionParser.combineLinks()`[ Combine all the revisions of the same article page ] -> `RevisionParser.sortAndPrintOut()` [ Final parsing and writing to HDFS ] 
 
 ### Docker
 
