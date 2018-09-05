@@ -8,7 +8,8 @@ ARGS=""
 docker run -it --rm \
   --name spark-submit \
   --entrypoint spark-submit \
-  --network sandbox-cluster \
+  --network ewg-cluster \
   --volume "${PWD}/./":/project \
   -t bigdata/spark --class ${CLASS} --master ${MASTER} \
+  --conf spark.extraListeners=com.groupon.sparklint.SparklintListener \
   /project/${TARGET} ${ARGS}

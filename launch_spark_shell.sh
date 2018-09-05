@@ -3,7 +3,7 @@
 docker run -it --rm  \
     --name spark-shell  \
     --entrypoint spark-shell  \
-    --network sandbox-cluster  \
+    --network ewg-cluster  \
     -p 4040:4040  \
     -t bigdata/spark \
     --master spark://spark-master:7077

@@ -27,4 +27,4 @@ services:
 networks:
     default:
         external:
-            name: sandbox-cluster
+            name: ewg-cluster
