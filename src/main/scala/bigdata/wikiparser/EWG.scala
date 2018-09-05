@@ -31,11 +31,22 @@ object EWG {
     log.info("Start parsing process")
     val conf = new SparkConf().setAppName("EvolvingWikipediaGraph")
     if (env == "local") {
-      conf.setMaster("local")
+      conf.setMaster("local[1]")
+//      conf.set("spark.cores.max", "1")
     }
-    val sc = new SparkContext(conf)
 
-    parseRevisions(sc)
+    val sequential = myConf.getBoolean(s"ewg.$env.sequential")
+    if (sequential) {
+      sequentialParseRevisions()
+    } else {
+      val sc = new SparkContext(conf)
+      parseRevisions(sc)
+    }
+  }
+
+  def sequentialParseRevisions(): Unit = {
+    val revisionsFile = myConf.getString(s"ewg.$env.sequential-revisions-file")
+    RevisionParserSequential.openLocalFiles()
   }
 
   /**

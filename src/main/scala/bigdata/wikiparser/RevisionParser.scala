@@ -2,9 +2,8 @@ package bigdata.wikiparser
 
 import java.net.URI
 
-import util.control.Breaks._
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.io.Text
+import org.apache.hadoop.io.{Text => HadoopText}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import com.typesafe.config.{Config, ConfigFactory}
@@ -41,7 +40,7 @@ object RevisionParser {
     */
   def readWikiRevisionsFromDump(sc: SparkContext, file: String): RDD[(String, String)] = {
     log.info("ReadWikiRevisions")
-    val rdd = sc.newAPIHadoopFile(file, classOf[WikipediaInputFormat], classOf[Text], classOf[Text], new Configuration())
+    val rdd = sc.newAPIHadoopFile(file, classOf[WikipediaInputFormat], classOf[HadoopText], classOf[HadoopText], new Configuration())
     rdd.map { case (title, revision) => (new String(title.copyBytes()), new String(revision.copyBytes())) }
   }
 
@@ -118,90 +117,7 @@ object RevisionParser {
     val outputStream = openHDFSFile(path, fileName)
     val writeToFile = outputStream.writeBytes _
 
-    // ------------------------------------------------------------------------------------
-    // get first link in the list
-    var current = revisionsLinks.head._2
-    // assign first revision date to each link (starting datetime)
-    current.foreach {
-      _.from = revisionsLinks.head._1
-    }
-
-    // PSEUDO-CODE
-    /*
-    for ts, links in revisionLinks:
-      intersection = intersect(links, current)
-      if (intersection == current)  // new links don't change
-        continue to next revision
-
-      missing = current - intersection // get all those links that either are not anymore in links or that have a different count (implement equals in Link)
-      save missing to file (or in data structure) with timestamp range [missing.from, ts]
-      new = links - intersection   // all links that are being added or with a new count
-      for n in new:
-        n.from <- ts
-      make sure the intersection elements are the ones from current (from field needs to be assigned)
-      current = new + intersection
-     */
-
-
-    // iterate over the link
-    for ((ts, links) <- revisionsLinks) {
-      // this `breakable` construct is the scala way of providing the `continue` 
-      // keyword inside a for loop
-      breakable {
-
-        // in case our current buffer of links is empty, we need to search
-        // for the next revision with some links in it
-        // This might happen in case the first revisions of the history
-        // of a page do not contain any link
-        if (current.isEmpty) {
-          current = links
-          // assign current timestamp
-          current.foreach {
-            _.from = ts
-          }
-          // (continue to next iteration)
-          break
-        }
-
-        // In case the next revision contains exactly the same links
-        // (with the same counts) - or some new that were not present before -
-        // as the previous revision, we just go on to the next revision
-        // adding the new links
-        val intersection = current.intersect(links)
-        if (intersection.length == current.length) {
-          // get the new links and add them to the current buffer
-          links.foreach {
-            _.from = ts
-          }
-          // links in `current` have priority over links in `links`
-          // need to use distict because `union()` does not automatically
-          // discard equal objects
-          current = current.union(links).distinct
-          // (continue to next iteration)
-          break
-        }
-
-        // TODO: The current algorithm will print out links with the same counts
-        // multiple times in case the link increases its count and then in the future
-        // decreases it again. Need to evaluate how to store this info. Whether as two different
-        // edges or with an edge w/ multiple date ranges.
-
-        // Write to HDFS all the links that are missing from the new revision
-        // This includes both links that just changed the count and links that might
-        // not be present anymore
-        val missing = current.diff(intersection)
-        // outputStream write function
-        writeToFile(linksArrayToString(ts, missing))
-
-        val new_links = links.diff(intersection)
-        new_links.foreach {
-          _.from = ts
-        }
-
-        // update current link buffer with the new_links
-        current = new_links.union(intersection).distinct
-      }
-    }
+    LinksParser.createEWGEdges(writeToFile, revisionsLinks)
 
     outputStream.close()
     // return some value to make spark execute the transformation
@@ -209,7 +125,7 @@ object RevisionParser {
   }
 
   /**
-    Open an output stream to a new article file
+  Open an output stream to a new article file
     Based on application.conf environment configuration, the function
     will open a stream to a local file or an file in HDFS.
     */
@@ -236,7 +152,7 @@ object RevisionParser {
 
     val workingDir = fs.getWorkingDirectory
     val newFolderPath = new Path(filePath)
-    if (!fs.exists(newFolderPath)) { 
+    if (!fs.exists(newFolderPath)) {
       // Create new Directory
       fs.mkdirs(newFolderPath)
     }
@@ -248,6 +164,7 @@ object RevisionParser {
     // Init and return output stream
     fs.create(hdfswritepath)
   }
+
 
   /**
     * Transform Link list to printable edges string
@@ -267,5 +184,34 @@ object RevisionParser {
         .concat("\n")
     }
     res
+  }
+
+  /**
+    * ------------------------------------------------------------------------
+    * FAST VERSION
+    * ------------------------------------------------------------------------
+   */
+
+  def processRevisions(sc: SparkContext, file: String) : RDD[Int] = {
+    val rdd = sc.newAPIHadoopFile(file, classOf[WikipediaInputFormat], classOf[HadoopText], classOf[HadoopText], new Configuration())
+    rdd.map { case (title, revision) => completeProcessing(title, revision) }
+      .groupByKey()
+      .map { case (k, v) => {
+        val sorted = v.toList.sortBy(_._1.getMillis())
+        writeToHDFS(k, sorted)
+      } }
+
+  }
+
+  def completeProcessing(articleTitle: HadoopText, revisionXml: HadoopText): (String, (DateTime, List[Link])) = {
+    val title = new String(articleTitle.copyBytes())
+    val xml = new String(revisionXml.copyBytes())
+
+    var tmp = scala.xml.XML.loadString(xml)
+    val revision = Revision(
+      timestamp = DateTime.parse((tmp \ "timestamp").text),
+      text = (tmp \ "text").text)
+
+    (title, (revision.timestamp, LinksParser.parseLinksFromPageContentWithCount(revision.text, "")))
   }
 }
