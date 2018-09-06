@@ -7,9 +7,13 @@ services:
     ports:
       - '7077:7077'
       - '8080:8080'
+      - '4040:4040'
+      - '18080:18080'
     volumes:
       - ".:/project"
       - "./data:/data"
+      - "./spark_conf/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf"
+      - "./spark_conf/log4j.properties:/opt/spark/conf/log4j.properties"
 
   spark-worker:
     image: 'bigdata/spark'
@@ -22,6 +26,8 @@ services:
       - '8081-8090:8081'
     volumes:
       - "./data:/data"
+      - "./spark_conf/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf"
+      - "./spark_conf/log4j.properties:/opt/spark/conf/log4j.properties"
 
 networks:
     default:

@@ -45,7 +45,6 @@ object EWG {
     log.info("Start parsing process")
     val conf = new SparkConf().setAppName("EvolvingWikipediaGraph")
 
-    // measure execution time
     time {
       if (env == "local") {
         conf.setMaster("local[1]")
@@ -56,6 +55,7 @@ object EWG {
           return
         }
       }
+
 
       val sc = new SparkContext(conf)
       parseRevisions(sc)
@@ -83,7 +83,6 @@ object EWG {
     // Sort all the links of all the revisions of an article
     // Parse the sorted list and write to HDFS an edge file for that article
     RevisionParser.createFinalOutput(links_comb).collect()
-
     log.info("Done.")
   }
 
