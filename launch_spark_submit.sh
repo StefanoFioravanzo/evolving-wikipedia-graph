@@ -11,5 +11,4 @@ docker run -it --rm \
   --network ewg-cluster \
   --volume "${PWD}/./":/project \
   -t bigdata/spark --class ${CLASS} --master ${MASTER} \
-  --conf spark.extraListeners=com.groupon.sparklint.SparklintListener \
   /project/${TARGET} ${ARGS}

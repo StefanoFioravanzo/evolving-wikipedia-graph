@@ -1,5 +1,7 @@
 package bigdata.wikiparser
 
+import java.util.regex.Pattern
+
 import bigdata.wikiparser.PageParser.Page
 import bigdata.wikiparser.RevisionParser.linksArrayToString
 import info.bliki.wiki.model.WikiModel
@@ -96,7 +98,7 @@ object LinksParser {
           // sliding approach (slower than regex)
           //          var new_links = text.sli2ding(link.linkTitle.length).count(window => window == link.linkTitle)
           // regex approach
-          var new_links = link.linkTitle.r.findAllMatchIn(text).length
+          var new_links = Pattern.quote(link.linkTitle).r.findAllMatchIn(text).length
           if (new_links > 0) {
            // log.debug(s"Page $pageTitle: Update link ${link.linkTitle} with new $new_links links")
             // update Link object with new count

@@ -25,21 +25,38 @@ object EWG {
   val myConf: Config = ConfigFactory.load()
   val env: String = myConf.getString("ewg.env")
 
+  /**
+    * Measure execution time of any function
+    * @param block input function
+    * @return result of input function
+    */
+  def time[R](block: => R): R = {
+    val t0 = System.nanoTime()
+    val result = block    // call-by-name
+    val t1 = System.nanoTime()
+    log.info("Elapsed time: " + (t1 - t0) + "ns")
+    result
+  }
+
   def main(args: Array[String]) {
     // Init Log4j
     Configurator.initialize(new DefaultConfiguration)
     Configurator.setLevel(log.getName, Level.INFO)
     log.info("Start parsing process")
     val conf = new SparkConf().setAppName("EvolvingWikipediaGraph")
-    if (env == "local") {
-      conf.setMaster("local[1]")
-//      conf.set("spark.cores.max", "1")
-    }
 
-    val sequential = myConf.getBoolean(s"ewg.$env.sequential")
-    if (sequential) {
-      sequentialParseRevisions()
-    } else {
+    // measure execution time
+    time {
+      if (env == "local") {
+        conf.setMaster("local[1]")
+        //      conf.set("spark.cores.max", "1")
+        val sequential = myConf.getBoolean(s"ewg.$env.sequential")
+        if (sequential) {
+          sequentialParseRevisions()
+          return
+        }
+      }
+
       val sc = new SparkContext(conf)
       parseRevisions(sc)
     }
@@ -51,7 +68,7 @@ object EWG {
   }
 
   /**
-    * Start revisioin parsing job. This function will start a series of 
+    * Start revision parsing job. This function will start a series of
     * Spark jobs th at stream in wikipedia data, parse all the article revisions 
     * and produce a series of files describing the evolving graph
     */

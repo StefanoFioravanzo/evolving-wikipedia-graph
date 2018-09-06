@@ -22,11 +22,12 @@ object RevisionParserSequential {
     * Open all files based on path wildcard
     */
   def openLocalFiles(): Unit = {
-    val files = (LocalPath("data/").toDirectory.files map (_.name) flatMap { x =>  x match  { case r"history_revisions_\d+\.xml" => Some(x) case _ => None}}).toList
+    val path = myConf.getString(s"ewg.$env.sequential-revisions-path")
+    val files = (LocalPath(path).toDirectory.files map (_.name) flatMap { x =>  x match  { case r"history_revisions_\d+\.xml" => Some(x) case _ => None}}).toList
     files.foreach(
       x => {
         log.info(s"processing file $x")
-        sequentialProcessing(s"data/$x")
+        sequentialProcessing(s"$path$x")
       }
     )
   }
