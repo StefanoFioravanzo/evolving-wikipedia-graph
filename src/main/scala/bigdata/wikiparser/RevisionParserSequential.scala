@@ -1,6 +1,7 @@
 package bigdata.wikiparser
 
 import java.io.{File, PrintWriter}
+import java.text.SimpleDateFormat
 
 import bigdata.wikiparser.RevisionParser.{Revision, env, log, myConf}
 import org.joda.time.DateTime
@@ -48,6 +49,14 @@ object RevisionParserSequential {
     var articleRevisions : List[(DateTime, List[Link])] = List[(DateTime, List[Link])]()
     var pw : PrintWriter = null
 
+    // define timestamp condition to accept revision
+    val date_pattern: String = "dd/MM/yyyy-hh:mm:ss"
+    val strdate: String = "01/01/1960-00:00:00"
+    val df = new SimpleDateFormat(date_pattern)
+    val date = df.parse(strdate)
+    val dt = new DateTime(date.getTime)
+    // to output the date: df.format(today)
+
     while (xml.hasNext) {
       // get next node in xml
       val elem = xml.next
@@ -80,11 +89,17 @@ object RevisionParserSequential {
             // get all the revision tags contents
             val rev = subTree(xml, label, attrs)
             // parse revision into Revision object
-            val revision = Revision(
-              timestamp = DateTime.parse((rev \ "timestamp").text),
-              text = (rev \ "text").text)
-            // extract links from revision text and add them to article list of revisions
-            articleRevisions =  (revision.timestamp, LinksParser.parseLinksFromPageContentWithCount(revision.text)) :: articleRevisions
+            val rev_timestamp = DateTime.parse((rev \ "timestamp").text)
+            log.info(s"revision date: $rev_timestamp")
+            // if rev_timestamp > dt
+            if (rev_timestamp.compareTo(dt) > 0) {
+//              log.info(s"revision accepted")
+              val revision = Revision(
+                timestamp = rev_timestamp,
+                text = (rev \ "text").text)
+              // extract links from revision text and add them to article list of revisions
+              articleRevisions =  (revision.timestamp, LinksParser.parseLinksFromPageContentWithCount(revision.text)) :: articleRevisions
+            }
           }
         case EvElemEnd(_, label) =>
           if (label == "page" && insidePage) {
