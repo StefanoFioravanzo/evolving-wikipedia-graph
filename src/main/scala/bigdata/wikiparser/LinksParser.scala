@@ -70,7 +70,8 @@ object LinksParser {
           title = elem.getAttributeByName("title")
           if (
             title != null
-              && !title.startsWith("User:") && !title.startsWith("User talk:")
+              && !title.startsWith("/") && !title.startsWith("User:")
+              && !title.startsWith("User talk:") && !title.startsWith("Talk:")
               && (classType == null || !classType.contains("external"))
               && title.length() < 256  // max allowed title length
             )

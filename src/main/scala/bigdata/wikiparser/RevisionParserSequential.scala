@@ -78,6 +78,8 @@ object RevisionParserSequential {
                 f.delete()
                 f.createNewFile()
                 pw = new PrintWriter(f)
+                // delete previous content
+                articleRevisions = List[(DateTime, List[Link])]()
             }
           }
           if (label == "redirect") {
@@ -90,7 +92,6 @@ object RevisionParserSequential {
             val rev = subTree(xml, label, attrs)
             // parse revision into Revision object
             val rev_timestamp = DateTime.parse((rev \ "timestamp").text)
-            log.info(s"revision date: $rev_timestamp")
             // if rev_timestamp > dt
             if (rev_timestamp.compareTo(dt) > 0) {
 //              log.info(s"revision accepted")
